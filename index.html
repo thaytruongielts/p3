@@ -1,0 +1,442 @@
+<!-- Chosen Palette: Christmas Frost (Deep Red #B91C1C, Forest Green #166534, Snow White #F9FAFB, Icy Blue #BFDBFE) -->
+<!-- Application Structure Plan: Cấu trúc gồm Header cố định với animation Santa và khu vực bài kiểm tra chính. Khu vực kiểm tra có 10 câu hỏi trắc nghiệm tương tác và hai nút: một nút để phát âm thanh (TTS) và một nút để hiển thị đáp án và kịch bản chi tiết. Sử dụng Vanilla JS để quản lý trạng thái chọn đáp án và chức năng TTS. -->
+<!-- Visualization & Content Choices: Report Info: 10 câu hỏi trắc nghiệm PET Part 3. -> Goal: Luyện nghe hiểu chi tiết và quan điểm. -> Viz/Presentation Method: Danh sách câu hỏi rõ ràng, thẻ nội dung nổi bật. -> Interaction: Nút Play Audio (TTS) và Nút Check Answers. Chức năng highlight câu trả lời người dùng đã chọn. -> Justification: Cung cấp môi trường luyện tập trắc nghiệm đầy đủ với phản hồi âm thanh và đáp án chi tiết. -> Library/Method: Vanilla JS + Gemini TTS API. NO SVG/Mermaid. -->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PET Listening Part 3 - Sustainable Travel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            background-image: linear-gradient(to bottom, #dbeafe, #f0f4f8);
+        }
+        .christmas-card {
+            background-color: #FFFFFF;
+            border: 2px solid #166534;
+            box-shadow: 0 10px 15px -3px rgba(185, 28, 28, 0.5), 0 4px 6px -2px rgba(185, 28, 28, 0.3);
+            transition: transform 0.3s;
+        }
+        .christmas-card:hover {
+            transform: translateY(-3px);
+        }
+        .play-btn {
+            background-color: #B91C1C;
+            transition: all 0.2s;
+        }
+        .play-btn:hover {
+            background-color: #991b1b;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+        .speaker-name {
+            font-weight: bold;
+            color: #166534;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .question-option {
+            cursor: pointer;
+            transition: background-color 0.1s;
+            padding: 8px;
+            margin-top: 4px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+        }
+        .question-option:hover:not(.selected) {
+            background-color: #f3f4f6;
+        }
+        .question-option.selected {
+            background-color: #a7f3d0; /* Light green/teal */
+            border: 1px solid #166534;
+            font-weight: 600;
+        }
+        .correct-answer-key {
+            color: #10b981; /* Green-500 */
+            font-weight: bold;
+        }
+        /* Santa Animation CSS */
+        .santa-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 50;
+            background-color: #B91C1C;
+            border-bottom: 4px solid #F9FAFB;
+        }
+        .santa-skiing {
+            position: absolute;
+            font-size: 3rem;
+            line-height: 1;
+            white-space: nowrap;
+            animation: ski-across 20s linear infinite;
+            color: #F9FAFB;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes ski-across {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+        /* Loading Spinner */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="antialiased pt-[60px]">
+    <!-- Santa Skiing Animation -->
+    <div class="santa-container flex items-center justify-center">
+        <div class="santa-skiing">🎅 Du lịch Bền vững 🌎 Cùng ông già Noel ⛷️ 🎄</div>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl mt-6">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-[#166534]">Luyện Nghe PET - Du Lịch Xanh</h1>
+            <p class="text-lg text-[#B91C1C] mt-2">Phần 3 (Dạng Trắc Nghiệm): Phỏng vấn với Travel Blogger Laura</p>
+        </header>
+
+        <!-- Script Data & TTS Helper Functions -->
+        <script>
+            const questionData = [
+                { id: 1, question: "What is the main reason Laura started travelling in an environmentally friendly way?", options: ["She couldn't afford expensive trips anymore.", "She wanted to connect more deeply with local people.", "She was concerned about the increasing damage to the planet."], answer: "C" },
+                { id: 2, question: "What does Laura say about flying?", options: ["She has stopped flying completely.", "She tries to use planes only for long-haul journeys.", "She now always chooses budget airlines."], answer: "B" },
+                { id: 3, question: "According to Laura, what is the best aspect of travelling by train?", options: ["The tickets are always cheaper than flying.", "It allows her to see beautiful scenery she would normally miss.", "The journey time is generally shorter than taking a car."], answer: "B" },
+                { id: 4, question: "When staying at accommodation, what does Laura prioritize?", options: ["Finding five-star hotels with excellent reviews.", "Choosing large chain hotels that offer discounts.", "Using smaller, locally owned guesthouses."], answer: "C" },
+                { id: 5, question: "What common mistake does Laura warn travellers about regarding food?", options: ["Buying too much food that they cannot finish.", "Eating imported food instead of local produce.", "Trying food that is too spicy."], answer: "B" },
+                { id: 6, question: "How does Laura ensure she doesn't use too much plastic on her trips?", options: ["She takes several reusable bags and cups with her.", "She only eats at restaurants that do not serve plastic bottles.", "She avoids shopping altogether while she travels."], answer: "A" },
+                { id: 7, question: "What challenge does Laura mention about sustainable tourism?", options: ["It is often impossible to find information about eco-friendly options.", "It sometimes requires more detailed planning and patience.", "Local people are often suspicious of eco-tourists."], answer: "B" },
+                { id: 8, question: "What is Laura's main message to new eco-travellers?", options: ["They should never visit popular tourist destinations.", "They must learn the local language immediately.", "Even small changes in habits can make a big difference."], answer: "C" },
+                { id: 9, question: "When buying souvenirs, what does Laura look for?", options: ["Mass-produced items that are easy to carry home.", "Expensive gifts that show high quality.", "Products made by local craftspeople."], answer: "C" },
+                { id: 10, question: "What advice does Laura give about activities during a trip?", options: ["Choose activities run by large international companies.", "Only participate in activities that are free of charge.", "Select activities that respect wildlife and natural environments."], answer: "C" }
+            ];
+
+            const ttsScript = `Host: Welcome to Travel Talk. Today we have Laura, a travel blogger who focuses on sustainable tourism. Laura, why this specific focus? Laura: Hi! Well, I’ve always loved travelling, but I became more and more worried about the huge impact we’re having on the environment—the pollution, the waste, the damage to natural habitats. It wasn't really about saving money, it was about acknowledging that we have a responsibility to look after the planet, so I started looking for ways to travel that were less damaging. That's why I began this new style of travel. Host: I see. And what’s the biggest change you've made? Getting rid of flights? Laura: That's the hard one! I haven’t stopped flying completely, especially for very long trips, but I try to use the train whenever possible. I've found that travelling by train, although sometimes slower than the plane, gives you a much better experience. You get to see the whole landscape change, which is something you definitely miss when you're 30,000 feet up in the air. That’s definitely the highlight. Host: And where do you choose to stay? Laura: I rarely book big, international hotel chains anymore. I prefer places that are owned and run by local people—small guesthouses or family-run B&Bs. They usually employ local staff and often use local ingredients, which puts money directly into the community. Host: That makes sense. What about waste? Laura: Plastic is a huge problem. I always travel with my own reusable water bottle and a coffee cup. I've also learned to avoid buying imported food at supermarkets, which usually comes in a lot of packaging. Sticking to local markets and seasonal produce is much better. Many travellers try exotic food, but forgetting where it comes from is a common mistake. Host: Does planning this kind of trip take longer? Laura: Yes, it does. You can't just click 'book' and assume everything is eco-friendly. Sometimes finding the right train connection or a genuinely green hotel takes much more research and time. That can be challenging, but it's worth the effort. Host: Any final advice for our listeners? Laura: Don't think you have to change everything overnight. Start small. Bring your own cup, choose a local restaurant, take the bus instead of a taxi once in a while. Those little changes really add up and make a difference over time. And finally, when you buy souvenirs, look for things made by local artisans rather than cheap plastic stuff that comes from big factories. And always choose activities that treat the wildlife and nature with respect.`;
+
+            const userSelections = {};
+            const choiceMap = ["A", "B", "C"];
+            let currentAudio = null;
+
+            // --- TTS Utility Functions (Required for PCM conversion) ---
+
+            const base64ToArrayBuffer = (base64) => {
+                const binaryString = atob(base64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                return bytes.buffer;
+            };
+
+            const pcmToWav = (pcm16, sampleRate) => {
+                const numChannels = 1;
+                const bytesPerSample = 2; // Int16
+                const buffer = new ArrayBuffer(44 + pcm16.length * bytesPerSample);
+                const view = new DataView(buffer);
+
+                const writeString = (view, offset, string) => {
+                    for (let i = 0; i < string.length; i++) {
+                        view.setUint8(offset + i, string.charCodeAt(i));
+                    }
+                };
+
+                let offset = 0;
+                // RIFF chunk
+                writeString(view, offset, 'RIFF'); offset += 4;
+                view.setUint32(offset, 36 + pcm16.length * bytesPerSample, true); offset += 4;
+                writeString(view, offset, 'WAVE'); offset += 4;
+
+                // FMT chunk
+                writeString(view, offset, 'fmt '); offset += 4;
+                view.setUint32(offset, 16, true); offset += 4; // Sub-chunk size
+                view.setUint16(offset, 1, true); offset += 2; // Audio format (1=PCM)
+                view.setUint16(offset, numChannels, true); offset += 2;
+                view.setUint32(offset, sampleRate, true); offset += 4;
+                view.setUint32(offset, sampleRate * numChannels * bytesPerSample, true); offset += 4; // Byte rate
+                view.setUint16(offset, numChannels * bytesPerSample, true); offset += 2; // Block align
+                view.setUint16(offset, 8 * bytesPerSample, true); offset += 2; // Bits per sample (16)
+
+                // DATA chunk
+                writeString(view, offset, 'data'); offset += 4;
+                view.setUint32(offset, pcm16.length * bytesPerSample, true); offset += 4;
+                
+                // Write PCM data
+                const pcmBytes = new Uint8Array(pcm16.buffer);
+                for (let i = 0; i < pcmBytes.length; i++, offset++) {
+                    view.setUint8(offset, pcmBytes[i]);
+                }
+
+                return new Blob([buffer], { type: 'audio/wav' });
+            };
+
+            // --- TTS Core Function ---
+            
+            const updateButtonState = (button, isLoading, isPlaying = false) => {
+                const icon = button.querySelector('span');
+                const loader = button.querySelector('.spinner');
+                
+                if (isLoading) {
+                    icon.classList.add('hidden');
+                    loader.classList.remove('hidden');
+                    button.disabled = true;
+                    button.textContent = button.textContent.replace('Nghe Giọng Đọc', 'Đang tải...');
+                    if (!button.originalText) button.originalText = 'Nghe Giọng Đọc'; 
+                } else {
+                    icon.classList.remove('hidden');
+                    loader.classList.add('hidden');
+                    button.disabled = isPlaying;
+                    button.textContent = isPlaying ? 'Đang phát...' : button.originalText || 'Nghe Giọng Đọc';
+                }
+            };
+
+            const generateAndPlayAudio = async (text, config, buttonId) => {
+                const button = document.getElementById(buttonId);
+                
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                    currentAudio = null;
+                }
+
+                updateButtonState(button, true);
+
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: text }] }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: config
+                    },
+                    model: "gemini-2.5-flash-preview-tts"
+                };
+
+                const MAX_RETRIES = 3;
+                let lastError = null;
+
+                for (let i = 0; i < MAX_RETRIES; i++) {
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+                        const part = result?.candidates?.[0]?.content?.parts?.[0];
+                        const audioData = part?.inlineData?.data;
+                        const mimeType = part?.inlineData?.mimeType;
+
+                        if (audioData && mimeType && mimeType.startsWith("audio/L16")) {
+                            const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                            const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 16000;
+                            
+                            const pcmData = base64ToArrayBuffer(audioData);
+                            const pcm16 = new Int16Array(pcmData);
+                            const wavBlob = pcmToWav(pcm16, sampleRate);
+                            const audioUrl = URL.createObjectURL(wavBlob);
+                            
+                            currentAudio = new Audio(audioUrl);
+                            
+                            currentAudio.onplay = () => updateButtonState(button, false, true);
+                            currentAudio.onended = () => updateButtonState(button, false, false);
+                            currentAudio.onerror = () => {
+                                updateButtonState(button, false, false);
+                                console.error("Audio playback error.");
+                            };
+                            currentAudio.play();
+                            return; 
+
+                        } else {
+                            throw new Error("Invalid TTS response structure or missing audio data.");
+                        }
+                    } catch (error) {
+                        lastError = error;
+                        if (i < MAX_RETRIES - 1) {
+                            await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                        }
+                    }
+                }
+                
+                updateButtonState(button, false, false);
+                console.error("Failed to generate and play audio after retries:", lastError);
+                alert("Không thể tạo giọng đọc (Lỗi API hoặc mạng). Vui lòng thử lại sau.");
+            };
+
+            // TTS Callbacks
+            window.playPart3 = () => {
+                const config = {
+                    multiSpeakerVoiceConfig: {
+                        speakerVoiceConfigs: [
+                            { speaker: "Host", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Charon" } } }, 
+                            { speaker: "Laura", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } }       
+                        ]
+                    }
+                };
+                // Format the script for multi-speaker recognition
+                const formattedScript = ttsScript.replace(/Presenter:/g, 'Host:');
+
+                generateAndPlayAudio(`TTS the following interview between Host and Laura: ${formattedScript}`, config, 'play-part3-btn');
+            };
+
+            function handleOptionClick(event, questionId) {
+                const clickedOption = event.currentTarget;
+                const parentQuestion = document.getElementById(`q-${questionId}`);
+                
+                parentQuestion.querySelectorAll('.question-option').forEach(option => {
+                    option.classList.remove('selected');
+                });
+
+                clickedOption.classList.add('selected');
+
+                const optionIndex = Array.from(parentQuestion.querySelectorAll('.question-option')).indexOf(clickedOption);
+                userSelections[questionId] = choiceMap[optionIndex];
+            }
+
+            function renderQuestions() {
+                const container = document.getElementById('question-list');
+                container.innerHTML = '';
+                
+                questionData.forEach(q => {
+                    const qEl = document.createElement('div');
+                    qEl.id = `q-${q.id}`;
+                    qEl.className = `mb-6 p-4 border-l-4 border-[#B91C1C] bg-red-50 rounded-md`;
+                    qEl.innerHTML = `<p class="font-bold mb-3 text-lg text-[#166534]">Câu ${q.id}. ${q.question}</p>`;
+                    
+                    q.options.forEach((opt, index) => {
+                        const optionEl = document.createElement('div');
+                        optionEl.className = 'question-option';
+                        optionEl.innerHTML = `<span class="font-medium">${choiceMap[index]}.</span> ${opt}`;
+                        optionEl.onclick = (e) => handleOptionClick(e, q.id);
+                        qEl.appendChild(optionEl);
+                    });
+                    container.appendChild(qEl);
+                });
+            }
+
+            function revealAnswers() {
+                const resultsSection = document.getElementById('results-section');
+                const answerKeyContainer = document.getElementById('answer-key-container');
+                const scriptContainer = document.getElementById('audio-script-container');
+                const revealBtn = document.getElementById('reveal-btn');
+                
+                if (resultsSection.classList.contains('hidden')) {
+                    resultsSection.classList.remove('hidden');
+                    revealBtn.textContent = 'Ẩn Đáp án & Kịch bản';
+                    revealBtn.classList.remove('bg-green-600');
+                    revealBtn.classList.add('bg-gray-600');
+                } else {
+                    resultsSection.classList.add('hidden');
+                    revealBtn.textContent = 'Kiểm tra Đáp án & Xem Kịch bản';
+                    revealBtn.classList.remove('bg-gray-600');
+                    revealBtn.classList.add('bg-green-600');
+                    return;
+                }
+
+                let keyHtml = `<h3 class="text-2xl font-bold mb-4 text-[#166534]">Kết Quả & Đáp Án</h3>`;
+                let scriptHtml = `<h3 class="text-2xl font-bold mb-4 text-[#B91C1C]">Kịch Bản Chi Tiết (Script)</h3>`;
+                let score = 0;
+                const totalQuestions = questionData.length;
+
+                // Answer Key
+                questionData.forEach(q => {
+                    const isCorrect = userSelections[q.id] === q.answer;
+                    if (isCorrect) score++;
+
+                    const userChoiceDisplay = userSelections[q.id] ? 
+                        `<span class="${isCorrect ? 'text-green-600' : 'text-red-600'} font-bold">(Chọn: ${userSelections[q.id]})</span>` : 
+                        `<span class="text-yellow-600 font-bold">(Chưa chọn)</span>`;
+
+                    keyHtml += `<p class="mb-1"><span class="font-bold">Câu ${q.id}:</span> <span class="correct-answer-key">Đúng: ${q.answer}</span> ${userChoiceDisplay}</p>`;
+                });
+
+                // Summary Score
+                const scoreHtml = `
+                    <div class="bg-yellow-100 p-4 rounded-lg text-center mb-6 border border-yellow-300">
+                        <p class="text-xl font-bold text-yellow-800">Tóm Tắt Kết Quả:</p>
+                        <p class="text-3xl font-extrabold text-yellow-800">${score} / ${totalQuestions} câu đúng</p>
+                    </div>`;
+                
+                // Script
+                let formattedScript = ttsScript.replace(/Presenter:/g, '<span class="speaker-name">Host:</span>');
+                formattedScript = formattedScript.replace(/Laura:/g, '<span class="speaker-name">Laura:</span>');
+                
+                scriptHtml += `<div class="p-4 bg-gray-50 rounded-lg border-l-4 border-gray-300"><p class="whitespace-pre-wrap text-sm leading-relaxed">${formattedScript.replace(/\n\s*(\d+\.)/g, '<br><br>$1')}</p></div>`;
+
+
+                answerKeyContainer.innerHTML = scoreHtml + keyHtml;
+                scriptContainer.innerHTML = scriptHtml;
+            }
+
+
+            document.addEventListener('DOMContentLoaded', () => {
+                renderQuestions();
+                document.getElementById('reveal-btn').addEventListener('click', revealAnswers);
+            });
+        </script>
+
+        <!-- Main Content Section -->
+        <section class="christmas-card rounded-xl p-6 md:p-8 mb-12">
+            <h2 class="text-3xl font-bold text-[#166534] mb-4">I. CÂU HỎI TRẮC NGHIỆM (10 Câu)</h2>
+            <p class="text-gray-700 mb-6 font-medium">Đây là kịch bản phỏng vấn giữa Host và Laura, một blogger du lịch. Bạn sẽ nghe giọng đa người nói. **Hãy chọn đáp án đúng nhất (A, B hoặc C) bằng cách nhấp vào lựa chọn.**</p>
+
+            <div class="flex justify-center mb-8">
+                <button id="play-part3-btn" onclick="playPart3()" class="play-btn text-white font-bold py-3 px-8 rounded-full flex items-center shadow-xl hover:shadow-2xl">
+                    <span class="mr-3 text-xl">🎙️</span>
+                    <span class="inline">Nghe Giọng Đọc (Phỏng vấn)</span>
+                    <div class="spinner hidden ml-3"></div>
+                </button>
+            </div>
+
+            <div id="question-list">
+                <!-- Questions are rendered here by JS -->
+            </div>
+
+            <div class="text-center my-10">
+                <button id="reveal-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition duration-200 shadow-lg">
+                    Kiểm tra Đáp án & Xem Kịch bản
+                </button>
+            </div>
+        </section>
+
+        <!-- Results Section (Initially Hidden) -->
+        <section id="results-section" class="christmas-card hidden p-6 md:p-8 space-y-8 mt-8">
+            <h2 class="text-3xl font-bold text-[#B91C1C]">KẾT QUẢ VÀ PHÂN TÍCH</h2>
+            
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="md:col-span-1 bg-gray-100 p-4 rounded-lg h-full border border-gray-300" id="answer-key-container">
+                    <!-- Answer Key will be dynamically inserted here -->
+                </div>
+                
+                <div class="md:col-span-2" id="audio-script-container">
+                    <!-- Audio Script will be dynamically inserted here -->
+                </div>
+            </div>
+        </section>
+    </div>
+    
+    <footer class="text-center text-gray-500 text-sm mt-10 pb-4">
+        PET Listening Practice - Made with Festive Cheer! 🎁
+    </footer>
+</body>
+</html>
